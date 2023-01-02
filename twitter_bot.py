@@ -173,4 +173,4 @@ while True:
     handle_dalle2_request(image_keyword)
 
     # logger.info(f"Sleeping for 10 seconds")
-    time.sleep(10)
+    time.sleep(30)
