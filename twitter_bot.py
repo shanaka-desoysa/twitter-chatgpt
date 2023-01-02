@@ -4,6 +4,7 @@ import os
 import time
 from dotenv import load_dotenv
 import openai
+import requests
 
 # Load environment variables from .env file
 load_dotenv(".env")
@@ -19,9 +20,11 @@ consumer_key = os.environ.get("TWITTER_CONSUMER_KEY")
 consumer_secret = os.environ.get("TWITTER_CONSUMER_SECRET")
 access_token = os.environ.get("TWITTER_ACCESS_TOKEN")
 access_token_secret = os.environ.get("TWITTER_ACCESS_TOKEN_SECRET")
-keyword = os.environ.get("TWITTER_SEARCH_KEYWORD", "#AI1Chat")
-last_replied_to_id = os.environ.get(
-    "TWITTER_LAST_REPLIED_TO_ID", 1609669651868295168)
+chat_keyword = os.environ.get("TWITTER_SEARCH_KEYWORD", "#AI1Chat").lower()
+image_keyword = os.environ.get(
+    "TWITTER_SEARCH_IMAGE_KEYWORD", "#AI1Image").lower()
+last_replied_to_id = int(os.environ.get(
+    "TWITTER_LAST_REPLIED_TO_ID", 1609669651868295168))
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 
@@ -35,12 +38,19 @@ auth = tweepy.OAuth1UserHandler(
 api = tweepy.API(auth)
 
 # Set the keyword you want to search for
-keyword = keyword.lower()
+chat_keyword = chat_keyword.lower()
 
 
-while True:
+def handle_chatgpt_request(keyword):
+    global last_replied_to_id
+
     # Search for tweets containing the keyword
-    tweets = api.search_tweets(q=keyword)
+    try:
+        logger.info(f"Searching for tweets containing {keyword}")
+        tweets = api.search_tweets(q=keyword)
+    except tweepy.errors.TweepyException as e:
+        logger.info(f"search_tweets Error: {e}")
+        return
 
     logger.info(f"Found {len(tweets)} tweets")
 
@@ -79,7 +89,7 @@ while True:
                     f"@{username} {response_text}",
                     in_reply_to_status_id=status_id
                 )
-            except tweepy.error.TweepError as e:
+            except tweepy.errors.TweepyException as e:
                 logger.info(f"Error: {e}")
                 response_text = "I'm sorry, I'm not sure how to answer that. Please ask me something else."
 
@@ -90,5 +100,77 @@ while True:
             # Write the ID of the last replied-to tweet to environment variable
             os.environ["TWITTER_LAST_REPLIED_TO_ID"] = str(last_replied_to_id)
 
-    logger.info(f"Sleeping for 10 seconds")
+
+def handle_dalle2_request(keyword):
+    global last_replied_to_id
+    # Search for tweets containing the keyword
+    try:
+        logger.info(f"Searching for tweets containing {keyword}")
+        tweets = api.search_tweets(q=keyword)
+    except tweepy.errors.TweepyException as e:
+        logger.info(f"search_tweets Error: {e}")
+        return
+
+    logger.info(f"Found {len(tweets)} tweets")
+
+    # Respond to each tweet
+    for tweet in tweets:
+        username = tweet.user.screen_name
+        status_id = tweet.id
+        # Check if this tweet has already been replied to
+        if tweet.id > last_replied_to_id:
+            # Get the text of the tweet
+            tweet_text = tweet.text
+            # Remove the keyword from the tweet text
+            tweet_text = tweet_text.lower()
+            tweet_text = tweet_text.replace(keyword, "")
+
+            # print the username, tweet and status_id
+            logger.info(f"username: {username}, tweet: {tweet_text}")
+
+            image_prompt = f"{tweet_text} image"
+            logger.info(f"OpenAI image_prompt: {image_prompt}")
+
+            image_model = "image-alpha-001"
+            response = openai.Image.create(
+                prompt=image_prompt,
+                # model=image_model,
+                size="256x256",
+                response_format="url"
+            )
+            image_url = response["data"][0]["url"]
+            logger.info(f"OpenAI image_url: {image_url}")
+
+            # Download the image and save it to a file
+            image_data = requests.get(image_url).content
+            image_file = "image.jpg"
+            with open(image_file, "wb") as f:
+                f.write(image_data)
+
+            # Reply to the tweet with the generated image
+            username = tweet.user.screen_name
+            status_id = tweet.id
+            try:
+                api.update_status_with_media(
+                    filename=image_file,
+                    status=f"@{username} {tweet_text}",
+                    in_reply_to_status_id=status_id
+                )
+            except tweepy.errors.TweepyException as e:
+                logger.info(f"Error: {e}")
+                response_text = "I'm sorry, I'm not sure how to answer that. Please ask me something else."
+
+            logger.info(f"Replied to tweet {status_id}")
+            # Update the ID of the last replied-to tweet
+            last_replied_to_id = tweet.id
+
+            # Write the ID of the last replied-to tweet to environment variable
+            os.environ["TWITTER_LAST_REPLIED_TO_ID"] = str(last_replied_to_id)
+
+
+while True:
+    handle_chatgpt_request(chat_keyword)
+    handle_dalle2_request(image_keyword)
+
+    # logger.info(f"Sleeping for 10 seconds")
     time.sleep(10)
