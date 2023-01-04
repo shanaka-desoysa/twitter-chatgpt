@@ -63,12 +63,12 @@ def handle_chatgpt_request(keyword):
             # Get the text of the tweet
             tweet_text = tweet.text
             # Remove the keyword from the tweet text
-            # tweet_text = tweet_text.replace(keyword, "")
+            tweet_text = tweet_text.replace(keyword, "")
 
             # print the username, tweet and status_id
             logger.info(f"username: {username}, tweet: {tweet_text}")
             # Use the OpenAI chat API to generate a response to the tweet
-            tweet_text = f"please answer  following question and keep the response less than 270 characters. {tweet_text}"
+            tweet_text = f"please answer following question and keep the response less than 270 characters. {tweet_text}"
             logger.info(f"OpenAI prompt: {tweet_text}")
             response = openai.Completion.create(
                 engine="text-davinci-003",
@@ -169,8 +169,11 @@ def handle_dalle2_request(keyword):
 
 
 while True:
+    # Search for tweets containing the chat keyword and handle the request
     handle_chatgpt_request(chat_keyword)
+
+    # Search for tweets containing the image keyword and handle the request
     handle_dalle2_request(image_keyword)
 
-    # logger.info(f"Sleeping for 10 seconds")
+    # Sleep for 30 seconds
     time.sleep(30)
