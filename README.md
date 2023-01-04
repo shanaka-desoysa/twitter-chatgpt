@@ -2,7 +2,7 @@
 
 Twitter bot that generates answers using OpenAI ChatGPT and DALL-E-2.
 
-Read more about it here: https://medium.com/@shanakadesoysa/creating-a-twitter-chatbot-with-openai-chatgpt-and-dall-e-2-d6bbf2d0230b
+Read more about it here: https://betterprogramming.pub/creating-a-twitter-chatbot-with-openai-chatgpt-and-dall-e-2-d6bbf2d0230b
 
 # Development
 
